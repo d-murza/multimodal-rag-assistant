@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import pandas as pd
 from sentence_transformers import SentenceTransformer
@@ -13,23 +14,28 @@ start_time = time.time() # the whole thing took ca 15 min
 CHUNK_SIZE = 10000
 embedding_dim = 384
 
+DATA_DIR = "data/wikihow"
+OUTPUT_DIR = "processed-data"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 # initialise faiss index
 title_index = faiss.IndexFlatIP(embedding_dim)
 combined_index = faiss.IndexFlatIP(embedding_dim)
 
 # initialise model and set device
 device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=device)
 
 print(f"Available RAM memory: {psutil.virtual_memory().available / 1e9:.1f} GB") # had issues with ram memory for this task
 
-# Connect to database and cursor
-connect = sqlite3.connect("wikihow.db")
+
+connect = sqlite3.connect(os.path.join(OUTPUT_DIR, "wikihow.db"))
 cursor = connect.cursor()
 
 # do all preprocessing in chunks to minimise ram memory needed
 first_chunk = True
-for df_chunk in pd.read_csv("wikihow-cleaned.csv", chunksize=CHUNK_SIZE):
+for df_chunk in pd.read_csv(os.path.join(DATA_DIR, "wikihow-cleaned.csv"), chunksize=CHUNK_SIZE):
     if first_chunk:
         df_chunk.to_sql("articles", connect, if_exists="replace", index=True, index_label="id")
         first_chunk = False
@@ -61,8 +67,8 @@ print("Size of title FAISS index:", title_index.ntotal)
 print("Size of combined FAISS index:", combined_index.ntotal)
 
 # saving title index starting now
-faiss.write_index(title_index, "processed-data/title_index.faiss")
-faiss.write_index(combined_index, "processed-data/combined_index.faiss")
+faiss.write_index(title_index, os.path.join(OUTPUT_DIR, "title_index.faiss"))
+faiss.write_index(combined_index, os.path.join(OUTPUT_DIR, "combined_index.faiss"))
 
 
 

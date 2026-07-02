@@ -19,6 +19,8 @@ import cv2
 
 # data obj
 
+DATA_DIR = "data/howto100m_bundle"
+
 @dataclass(frozen=True)
 class ClipRecord:
     clip_id: int
@@ -159,7 +161,8 @@ def read_frame_at_time(cap: cv2.VideoCapture, time_sec: float) -> Optional[Image
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return Image.fromarray(frame_rgb)
 
-# ive found that we can use an attribute instead of "with torch.no_grad():" (looks cleaner)
+# ive found that we can use an attribute instead of "with torch.no_grad():" (looks cleaner)\
+# not used anymore - rewrote into more efficient embed_video_clips() that decodes sequentially and batches the CLIP forward pass
 @torch.no_grad()
 def embed_clip_frames(
     video_path: Path,
@@ -193,6 +196,83 @@ def embed_clip_frames(
     clip_feature = image_features.mean(dim=0)
     clip_feature = torch.nn.functional.normalize(clip_feature, dim=0)
     return clip_feature.cpu().numpy().astype(np.float32)
+
+
+@torch.no_grad()
+def embed_video_clips(
+    video_path: Path,
+    clips: list[dict],
+    model: CLIPModel,
+    processor: CLIPProcessor,
+    device: torch.device,
+    frames_per_clip: int = 4,
+    batch_size: int = 64,
+) -> list[np.ndarray]:
+    def zero() -> np.ndarray:
+        return np.zeros((512,), dtype=np.float32)
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return [zero() for _ in clips]
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if not fps or fps <= 0:
+        fps = 25.0  # GUard check
+
+    # 1) map each clip to the frame indices it samples (same timestamps as before).
+    clip_frame_indices: list[list[int]] = []
+    needed: set[int] = set()
+    for clip in clips:
+        times = sample_frame_times(float(clip["start_sec"]), float(clip["end_sec"]), frames_per_clip)
+        idxs = [max(0, int(round(t * fps))) for t in times]
+        clip_frame_indices.append(idxs)
+        needed.update(idxs)
+    max_idx = max(needed) if needed else -1
+
+    # 2) sequential decode. grab() advances+decodes cheaply; we only retrieve()+convert
+    #    the frames we actually need. Frames are embedded in batches and then freed, so
+    #    memory stays bounded (we keep the tiny 512-d features, not the images).
+    feat_by_index: dict[int, torch.Tensor] = {}
+    buf_imgs: list[Image.Image] = []
+    buf_idxs: list[int] = []
+
+    def flush() -> None:
+        if not buf_imgs:
+            return
+        inputs = processor(images=buf_imgs, return_tensors="pt")
+        pixel_values = inputs["pixel_values"].to(device)
+        feats = normalize_features(model.get_image_features(pixel_values=pixel_values)).cpu()
+        for j, idx in enumerate(buf_idxs):
+            feat_by_index[idx] = feats[j]
+        buf_imgs.clear()
+        buf_idxs.clear()
+
+    frame_idx = 0
+    while frame_idx <= max_idx:
+        if not cap.grab(): # decode&advance without copying pixels
+            break
+        if frame_idx in needed:
+            ok, frame = cap.retrieve() # pull pxels only for frames we need
+            if ok and frame is not None:
+                buf_imgs.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+                buf_idxs.append(frame_idx)
+                if len(buf_imgs) >= batch_size:
+                    flush()
+        frame_idx += 1
+    flush()
+    cap.release()
+
+    # 3) per clip: average its frames' features and normalise (same as embed_clip_frames).
+    vectors: list[np.ndarray] = []
+    for idxs in clip_frame_indices:
+        rows = [feat_by_index[i] for i in idxs if i in feat_by_index]
+        if not rows:
+            vectors.append(zero())
+            continue
+        clip_feature = torch.nn.functional.normalize(torch.stack(rows).mean(dim=0), dim=0)
+        vectors.append(clip_feature.numpy().astype(np.float32))
+    return vectors
+
 
 def normalize_features(features):
     if hasattr(features, "image_embeds"):
@@ -413,13 +493,17 @@ def preprocess_videos(
     stride_sec: float = 4.0,
     min_clip_sec: float = 2.0,
     frames_per_clip: int = 4,
+    batch_size: int = 64,
     limit_videos: Optional[int] = None,
 ) -> tuple[sqlite3.Connection, faiss.IndexIDMap2, CLIPModel, CLIPProcessor, torch.device]:
+    videos_root = Path(videos_root)
+
     merged = load_task_video_selection(task_ids_csv, available_videos_csv)
     if limit_videos is not None:
         merged = merged.head(limit_videos).copy()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     processor = CLIPProcessor.from_pretrained(model_name)
     model = CLIPModel.from_pretrained(model_name).to(device)
     model.eval()
@@ -443,23 +527,26 @@ def preprocess_videos(
 
         print(f"[video {row_idx + 1}/{len(merged)}] {video_id} -> {len(clips)} clips")
 
+        if not clips:
+            continue
+
+        # embed every clip of this video with a single sequential decode + batched CLIP.
+        clip_vectors = embed_video_clips(
+            video_path=video_path,
+            clips=clips,
+            model=model,
+            processor=processor,
+            device=device,
+            frames_per_clip=frames_per_clip,
+            batch_size=batch_size,
+        )
+
         clip_records: list[ClipRecord] = []
-        clip_vectors: list[np.ndarray] = []
         clip_vector_ids: list[int] = []
 
         for clip in clips:
             clip_id = clip_id_cursor
             clip_id_cursor += 1
-
-            vector = embed_clip_frames(
-                video_path=video_path,
-                start_sec=float(clip["start_sec"]),
-                end_sec=float(clip["end_sec"]),
-                model=model,
-                processor=processor,
-                device=device,
-                frames_per_clip=frames_per_clip,
-            )
 
             clip_records.append(
                 ClipRecord(
@@ -473,7 +560,6 @@ def preprocess_videos(
                     frame_count=frames_per_clip,
                 )
             )
-            clip_vectors.append(vector)
             clip_vector_ids.append(clip_id)
 
         insert_clips(conn, clip_records)
@@ -492,27 +578,11 @@ def preprocess_videos(
 # i decided to create a arg parser so that we are flexible with the input files
 # to run on Windows Powershell: 
 # python howTo100M_preprocessing.py `
-#  --task-ids-csv howto100m_bundle/task_ids.csv `
-#  --available-videos-csv howto100m_bundle/available_videos.csv `
-#  --videos-root howto100m_bundle/videos `
 #  --limit-videos 5 `
 #  --query "how to boil a water"
 
 def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="HowTo100M Task #2 preprocessing pipeline")
-    parser.add_argument("--task-ids-csv", type=Path, required=True, help="Path to task_ids.csv")
-    parser.add_argument(
-        "--available-videos-csv",
-        type=Path,
-        required=True,
-        help="Path to available_videos.csv",
-    )
-    parser.add_argument(
-        "--videos-root",
-        type=Path,
-        required=True,
-        help="Directory that contains the actual video files",
-    )
     parser.add_argument("--db-path", type=Path, default=Path("processed-data/howto100m_clips.sqlite3"))
     parser.add_argument("--index-path", type=Path, default=Path("processed-data/howto100m_clips.faiss"))
     parser.add_argument(
@@ -525,6 +595,12 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--stride-sec", type=float, default=4.0)
     parser.add_argument("--min-clip-sec", type=float, default=2.0)
     parser.add_argument("--frames-per-clip", type=int, default=4)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="Number of frames per CLIP forward pass (raise to use more GPU)",
+    )
     parser.add_argument(
         "--limit-videos",
         type=int,
@@ -544,9 +620,9 @@ def main() -> None:
     args = build_argparser().parse_args()
 
     conn, index, model, processor, device = preprocess_videos(
-        task_ids_csv=args.task_ids_csv,
-        available_videos_csv=args.available_videos_csv,
-        videos_root=args.videos_root,
+        task_ids_csv=os.path.join(DATA_DIR, "task_ids.csv"),
+        available_videos_csv=os.path.join(DATA_DIR, "available_videos.csv"),
+        videos_root=os.path.join(DATA_DIR, "videos"),
         db_path=args.db_path,
         index_path=args.index_path,
         model_name=args.model_name,
@@ -554,6 +630,7 @@ def main() -> None:
         stride_sec=args.stride_sec,
         min_clip_sec=args.min_clip_sec,
         frames_per_clip=args.frames_per_clip,
+        batch_size=args.batch_size,
         limit_videos=args.limit_videos,
     )
 

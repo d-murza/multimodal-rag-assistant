@@ -2,14 +2,14 @@ from transformers import pipeline
 import torch
 
 # TASK 1 - Model Setup and Prompt Structure 
-print("TASK 1")
-device = "mps" if torch.backends.mps.is_available() else "cpu"
-print("Device:", device)
+# print("TASK 1")
+# device = "mps" if torch.backends.mps.is_available() else "cpu"
+# print("Device:", device)
 
-pipe = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", dtype=torch.float16, device=device)
+# pipe = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", dtype=torch.float16, device=device)
 
-config = pipe.model.config
-print("Context window: ", config.max_position_embeddings) # to find max tokens available
+# config = pipe.model.config
+# print("Context window: ", config.max_position_embeddings) # to find max tokens available
 
 
 
@@ -62,14 +62,8 @@ def prompt_construction(system_prompt, context_block, conversation_history):
 #print(outputs[0]["generated_text"])
 
 
-print("")
+# TASK 2 - Chat Loop and Conversation Management
 
-
-# TASK 2 - Chat Loop and Conversation Management 
-print("TASK 2")
-
-# count tokens
-tokenizer = pipe.tokenizer
 # max tokens available for new generated text is max - 256
 max_new_tokens = 256 # needs to have this much free to do another step of generating
 max_tokens = 2048 - max_new_tokens
@@ -84,13 +78,13 @@ def chat_loop():
         if user_message == "quit":
             print("Shutting chatbot down...")
             break
-        
+
         # append user message to conversation history
         conversation_history.append({
             "role": "user",
             "content": user_message
             })
-        
+
         # this is where we would insert the context block
         # essentially calling (the function that retrieves from earlier assignment)
         # context_block = retrieval_test(user_message, combined_index, connect)
@@ -100,7 +94,7 @@ def chat_loop():
 
         # checking so that the prompts are not using all tokens
         token_count = len(tokenizer.encode(prompt))
-        
+
         # if so, truncate = remove old messages
         while token_count > max_tokens:
             conversation_history.pop(0)
@@ -119,7 +113,7 @@ def chat_loop():
         model_response = generated[len(prompt):].strip()
 
         model_response = output_validation(model_response) # implement the validation from task 3
-        
+
         # if an error occured - break loop and go to user input again
         if model_response == "Error":
             continue
@@ -132,12 +126,7 @@ def chat_loop():
             })
 
 
-# chat loop is initiated further down
-
-
-
-# TASK 3 - Output Validation and RAG Preparation 
-print("\nTASK 3")
+# TASK 3 - Output Validation and RAG Preparation
 
 # function that takes the model response and checks the three conditions
 def output_validation(model_response):
@@ -150,7 +139,7 @@ def output_validation(model_response):
         model_response = model_response.replace(token, "") # exchange role token to nothing
         words = model_response.split() # update list with words
         length = len(words)
-    
+
     # incomplete or empty outputs are handled gracefully by checking number of words
     if length < 10:
         print("Error: Generated incomplete response. Try again.")
@@ -163,7 +152,7 @@ def output_validation(model_response):
     if unique_word_ratio < 0.3: # set a little lower than recommended in page above
         print("Error: Output is degenerate. Unique word ratio is to low. Can't be proper and meaningful sentences.")
         return "Error"
-    
+
     # malformed responses are detected. - check so that there is a list structure
     if "1." not in model_response:
         print("Error: Malformed response. List structure is missing.")
@@ -173,10 +162,25 @@ def output_validation(model_response):
     return model_response
 
 
+# standalone entry point: loads the model and runs the interactive chat loop.
+# guarded so importing this module (Assignment 10) does not trigger any of it.
+if __name__ == "__main__":
+    print("TASK 1")
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    print("Device:", device)
 
-# starting chatloop
-chat_loop()
+    pipe = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", dtype=torch.float16, device=device)
 
+    config = pipe.model.config
+    print("Context window: ", config.max_position_embeddings) # to find max tokens available
 
+    print("")
 
+    print("TASK 2")
+    # count tokens
+    tokenizer = pipe.tokenizer
 
+    print("\nTASK 3")
+
+    # starting chatloop
+    chat_loop()

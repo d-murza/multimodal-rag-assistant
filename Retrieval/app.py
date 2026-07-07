@@ -16,6 +16,7 @@ from pathlib import Path
 import gradio as gr
 
 from rag_pipeline import RAGPipeline
+from model_setup import system_prompt, overall_max_tokens
 
 # where the HowTo100M mp4 files live (used to play a selected clip)
 PREPROCESSING_DIR = Path(__file__).resolve().parent.parent / "Preprocessing"
@@ -107,7 +108,7 @@ def respond(message: str, chat_messages: list[dict], history_state: list[dict]):
             )
 
     # inspection panel
-    token_budget = f"{result.prompt_token_count} / {result.max_tokens} tokens used"
+    token_budget = f"{result.prompt_token_count} / {overall_max_tokens} tokens used"
     vector_rows = [
         [f"Text #{i}", art.title[:40], round(art.score, 3)]
         for i, art in enumerate(result.articles, start=1)
@@ -145,11 +146,23 @@ def play_selected(evt: gr.SelectData, clip_metas: list):
 
 
 def build_ui() -> gr.Blocks:
-    with gr.Blocks(title="Multimodal How-To RAG") as demo:
+    css = """
+                    #videos-table td {
+                        max-width: 250px;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+                    """
+    with gr.Blocks(title="Multimodal How-To RAG", css=css) as demo:
         gr.Markdown(
             "# Multimodal How-To RAG Assistant\n"
             "Ask a how-to question — the system retrieves articles, generates the steps, "
             "and finds a video clip for each step."
+        )
+
+        gr.Markdown(
+            f"#### Current system prompt:\n {system_prompt}\n"
         )
 
         history_state = gr.State([])
@@ -179,12 +192,13 @@ def build_ui() -> gr.Blocks:
                         wrap=True,
                     )
                 with gr.Tab("Videos"):
+                    video_html = gr.HTML(PLACEHOLDER_HTML, label="Selected clip")
                     videos_table = gr.Dataframe(
                         headers=["step", "video_id", "segment", "score", "task"],
                         interactive=False,
                         wrap=True,
+                        elem_id="videos-table",
                     )
-                    video_html = gr.HTML(PLACEHOLDER_HTML, label="Selected clip")
 
         with gr.Accordion("System inspection", open=False):
             token_budget = gr.Textbox(label="Token budget", interactive=False)

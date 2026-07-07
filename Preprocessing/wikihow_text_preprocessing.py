@@ -14,8 +14,8 @@ start_time = time.time() # the whole thing took ca 15 min
 CHUNK_SIZE = 8000
 embedding_dim = 384
 
-DATA_DIR = "Preprocessing/data/wikihow-cleaned"
-OUTPUT_DIR = "Preprocessing/processed-data"
+DATA_DIR = "data/wikihow-cleaned"
+OUTPUT_DIR = "processed-data"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # initialise faiss index

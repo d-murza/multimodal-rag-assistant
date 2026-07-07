@@ -51,7 +51,7 @@ class ChatBot:
         max_context_tokens: int = 2048,
     ) -> None:
 
-        device, dtype = "cpu", torch.float32
+        device, dtype = "cuda", torch.float32
 
         self.pipe = pipeline("text-generation", model=model_name, dtype=dtype, device=device)
         self.tokenizer = self.pipe.tokenizer

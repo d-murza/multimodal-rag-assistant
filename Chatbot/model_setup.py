@@ -66,7 +66,8 @@ def prompt_construction(system_prompt, context_block, conversation_history):
 
 # max tokens available for new generated text is max - 256
 max_new_tokens = 256 # needs to have this much free to do another step of generating
-max_tokens = 2048 - max_new_tokens
+overall_max_tokens = 2048
+max_tokens = overall_max_tokens - max_new_tokens
 
 def chat_loop():
     print("----- Starting chatbot -----")

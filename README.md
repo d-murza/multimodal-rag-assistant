@@ -8,22 +8,21 @@ Structure of this md file is as follows:
 
 
 ## Structure and pipeline of project
-The folder main folder is called Project. It has 4 sub folders, each containing on weekly assignment.
+The folder main folder is called Project. It has 3 sub folders, each containing on weekly assignment apart for Retrieval that contains both assignment 10 and 11.
 The datasets, model files and the virtual environments are not pushed to git. The structure of the project can be found down below.
 
 
 ### Pipeline
-1. 
-Create a virtual environment and install the requirements.txt.
+1. Create a virtual environment and install the requirements.txt.
 
-2. 
-For the code to work in Project assignment 01 (Preprocessing) the folders with the downloaded data are placed in the subfolder "data" just as they are when they are downloaded using the links from the assignment pdf. The scripts are wikihow_text_preprocessing.py and howTo100M_preprocessing.py, Run wikihow_text_preprocessing.py first.
+2. For the code to work in Project assignment 01 (Preprocessing) the folders with the downloaded data are placed in the subfolder "data" just as they are when they are downloaded using the links from the assignment pdf. The scripts are wikihow_text_preprocessing.py and howTo100M_preprocessing.py, Run wikihow_text_preprocessing.py first.
 
-3. 
-For assignment 2, the script can just be run and tested with different scenarios.
+3. For assignment 2, the script can just be run and tested with different scenarios.
 
-4. 
-For assignment 3, step into Retrieval folder to run the scripts from here.
+4. For assignment 3, step into Retrieval folder to run the scripts from here.
+
+5. For assignment 4, step into Retrieval folder to run app.py from here.
+
 
 ### Structure of the folder (after all scripts have been run)
 ```
@@ -49,7 +48,7 @@ Project/
 │   ├── article_retriever.py        
 │   ├── video_retriever.py             
 │   ├── rag_pipeline.py                
-│   └── app.py                                               
+│   └── app.py                          # run this to start the app                                          
 ├── Plan_of_interface.png              
 ├── requirements.txt
 └── README.md
@@ -87,5 +86,5 @@ In assignment 03, the retrieval and pipe line of the project was created.
 As figure 1 shows in the assignment pdf, the queries by the user are turned into embeddings by the same model "sentence-transformers/all-MiniLM-L6-v2" as in project assignment 1. The step by steps are then generated before the videoretriever uses "openai/clip-vit-base-patch32" model to create embeddings for each step, which are then used to  find a suitable video from the howto100_clips.sqlite3 database.
 
 ## Project assignment 04
-
-  
+The planned interface wasn't really followed as we found it neater to do different menus that can be opened to have more focus on the chat part which is the most important for the user.
+To start the app, run the app.py. Worth noting is that the "System inspection" can be found as a toggle menu at the bottom of the webpage. If this is opened, token budget, similarity scores and injected context can be found. The user can decide if it wants to see the articles or the videos for the chatbot answer.

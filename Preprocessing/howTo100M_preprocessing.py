@@ -19,7 +19,7 @@ import cv2
 
 # data obj
 
-DATA_DIR = "data/howto100m_bundle"
+DATA_DIR = "Preprocessing/data/howto100m_bundle"
 
 @dataclass(frozen=True)
 class ClipRecord:
@@ -502,7 +502,7 @@ def preprocess_videos(
     if limit_videos is not None:
         merged = merged.head(limit_videos).copy()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
     processor = CLIPProcessor.from_pretrained(model_name)
     model = CLIPModel.from_pretrained(model_name).to(device)
@@ -583,8 +583,8 @@ def preprocess_videos(
 
 def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="HowTo100M Task #2 preprocessing pipeline")
-    parser.add_argument("--db-path", type=Path, default=Path("processed-data/howto100m_clips.sqlite3"))
-    parser.add_argument("--index-path", type=Path, default=Path("processed-data/howto100m_clips.faiss"))
+    parser.add_argument("--db-path", type=Path, default=Path("Preprocessing/processed-data/howto100m_clips.sqlite3"))
+    parser.add_argument("--index-path", type=Path, default=Path("Preprocessing/processed-data/howto100m_clips.faiss"))
     parser.add_argument(
         "--model-name",
         type=str,

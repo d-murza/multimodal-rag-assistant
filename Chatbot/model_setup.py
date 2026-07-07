@@ -166,7 +166,7 @@ def output_validation(model_response):
 # guarded so importing this module (Assignment 10) does not trigger any of it.
 if __name__ == "__main__":
     print("TASK 1")
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print("Device:", device)
 
     pipe = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", dtype=torch.float16, device=device)

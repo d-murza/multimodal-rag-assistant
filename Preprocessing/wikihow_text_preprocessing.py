@@ -11,11 +11,11 @@ import psutil
 # TASK 1 - WikiHow Text Preprocessing
 start_time = time.time() # the whole thing took ca 15 min
 
-CHUNK_SIZE = 10000
+CHUNK_SIZE = 8000
 embedding_dim = 384
 
-DATA_DIR = "data/wikihow"
-OUTPUT_DIR = "processed-data"
+DATA_DIR = "Preprocessing/data/wikihow-cleaned"
+OUTPUT_DIR = "Preprocessing/processed-data"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # initialise faiss index
@@ -23,7 +23,8 @@ title_index = faiss.IndexFlatIP(embedding_dim)
 combined_index = faiss.IndexFlatIP(embedding_dim)
 
 # initialise model and set device
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+
 print(f"Using device: {device}")
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=device)
 

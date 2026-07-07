@@ -3,6 +3,7 @@ howto100m_bundle/
 raw/
 data/
 processed-data/
+.conda/
 
 
 # Byte-compiled / optimized / DLL files

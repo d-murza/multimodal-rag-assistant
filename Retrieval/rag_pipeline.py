@@ -50,12 +50,8 @@ class ChatBot:
         max_new_tokens: int = 256,
         max_context_tokens: int = 2048,
     ) -> None:
-        if torch.cuda.is_available():
-            device, dtype = "cuda", torch.float16
-        elif torch.backends.mps.is_available():
-            device, dtype = "mps", torch.float16
-        else:
-            device, dtype = "cpu", torch.float32  # float16 matmul is unreliable on CPU
+
+        device, dtype = "cpu", torch.float32
 
         self.pipe = pipeline("text-generation", model=model_name, dtype=dtype, device=device)
         self.tokenizer = self.pipe.tokenizer

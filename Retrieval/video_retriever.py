@@ -71,6 +71,7 @@ class VideoRetriever:
     def retrieve(self, query: str, k: int = 5) -> list[RetrievedClip]:
         # clip vectors are L2-normalised, so inner product == cosine similarity
         query_vec = embed_text(query, self.model, self.processor, self.device)
+
         scores, clip_ids = self.index.search(query_vec, k)
 
         results: list[RetrievedClip] = []

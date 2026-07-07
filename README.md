@@ -26,6 +26,7 @@ For assignment 2, the script can just be run and tested with different scenarios
 For assignment 3, step into Retrieval folder to run the scripts from here.
 
 ### Structure of the folder (after all scripts have been run)
+```
 Project/
 ├── Preprocessing/
 │   ├── wikihow_text_preprocessing.py 
@@ -52,7 +53,7 @@ Project/
 ├── Plan_of_interface.png              
 ├── requirements.txt
 └── README.md
-
+```
 
 
 ## Project assignment 01

@@ -1,0 +1,32 @@
+# Python environments & caches
+venv/
+.venv/
+.conda/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Datasets (downloaded or provided separately - see each folder's README)
+data/
+raw/
+processed-data/
+howto100m_bundle/
+ADEChallengeData2016/
+mvtec_anomaly_detection/
+
+# Models & large artifacts
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.faiss
+*.sqlite3
+*.db
+*.mp4
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/

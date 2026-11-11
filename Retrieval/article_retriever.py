@@ -1,5 +1,5 @@
-# Assignment 10 - Task 1: semantic article retrieval over the WikiHow indices
-# built in Assignment 8 (wikihow.db + title/combined FAISS indices).
+# Semantic article retrieval over the WikiHow indices
+# built during preprocessing (wikihow.db + title/combined FAISS indices).
 from __future__ import annotations
 
 # importing sentence_transformers after torch/transformers crashes on our Windows
@@ -19,9 +19,9 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# same embedding model as Assignment 8
+# same embedding model as in preprocessing
 DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-# where Assignment 8 wrote its outputs (Project/Preprocessing/processed-data)
+# where preprocessing writes its outputs (Preprocessing/processed-data)
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "Preprocessing" / "processed-data"
 
 
@@ -54,7 +54,7 @@ class ArticleRetriever:
         for path in (self.db_path, title_index_path, combined_index_path):
             if not Path(path).exists():
                 raise FileNotFoundError(
-                    f"Missing Assignment 8 artifact: {path}. "
+                    f"Missing preprocessing artifact: {path}. "
                     "Run Preprocessing/wikihow_text_preprocessing.py first."
                 )
 
@@ -67,7 +67,7 @@ class ArticleRetriever:
         self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
 
     def _encode(self, query: str) -> np.ndarray:
-        # encode + normalise the query the same way Assignment 8 did
+        # encode + normalise the query the same way preprocessing did
         vec = self.model.encode([query], convert_to_numpy=True).astype("float32")
         faiss.normalize_L2(vec)
         return vec

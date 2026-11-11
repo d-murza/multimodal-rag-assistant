@@ -582,7 +582,7 @@ def preprocess_videos(
 #  --query "how to boil a water"
 
 def build_argparser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="HowTo100M Task #2 preprocessing pipeline")
+    parser = argparse.ArgumentParser(description="HowTo100M video preprocessing pipeline")
     parser.add_argument("--db-path", type=Path, default=Path("processed-data/howto100m_clips.sqlite3"))
     parser.add_argument("--index-path", type=Path, default=Path("processed-data/howto100m_clips.faiss"))
     parser.add_argument(

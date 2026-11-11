@@ -1,5 +1,5 @@
-# Assignment 10 - Task 2: text-to-clip retrieval over the HowTo100M CLIP index
-# built in Assignment 8 (howto100m_clips.faiss + howto100m_clips.sqlite3).
+# Text-to-clip retrieval over the HowTo100M CLIP index
+# built during preprocessing (howto100m_clips.faiss + howto100m_clips.sqlite3).
 from __future__ import annotations
 
 import argparse
@@ -13,13 +13,13 @@ import faiss
 import torch
 from transformers import CLIPModel, CLIPProcessor
 
-# reuse the CLIP text encoder and metadata helper from the Assignment 8 script
+# reuse the CLIP text encoder and metadata helper from the preprocessing script
 PREPROCESSING_DIR = Path(__file__).resolve().parent.parent / "Preprocessing"
 if str(PREPROCESSING_DIR) not in sys.path:
     sys.path.insert(0, str(PREPROCESSING_DIR))
 from howTo100M_preprocessing import embed_text, fetch_clip_metadata  # noqa: E402
 
-# same CLIP model and output folder as Assignment 8
+# same CLIP model and output folder as preprocessing
 DEFAULT_MODEL = "openai/clip-vit-base-patch32"
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "Preprocessing" / "processed-data"
 
@@ -55,7 +55,7 @@ class VideoRetriever:
         for path in (self.index_path, self.db_path):
             if not path.exists():
                 raise FileNotFoundError(
-                    f"Missing Assignment 8 artifact: {path}. "
+                    f"Missing preprocessing artifact: {path}. "
                     "Run Preprocessing/howTo100M_preprocessing.py first."
                 )
 

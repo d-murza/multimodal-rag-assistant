@@ -1,4 +1,4 @@
-# Assignment 10 - Task 3 (optional): Gradio interface for the RAG pipeline.
+# Gradio interface for the RAG pipeline.
 # Left: chat. Right: retrieved articles + video clips (click a clip to play it
 # at its own timestamp). Bottom: a collapsible inspection panel.
 from __future__ import annotations

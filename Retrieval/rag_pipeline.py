@@ -1,4 +1,4 @@
-# Assignment 10 - Task 3: end-to-end RAG pipeline.
+# End-to-end RAG pipeline.
 # query -> article retrieval -> prompt/context -> TinyLlama generation
 #       -> parse steps -> CLIP video retrieval per step.
 from __future__ import annotations
@@ -23,7 +23,7 @@ from transformers import pipeline
 from article_retriever import ArticleRetriever, RetrievedArticle, DEFAULT_DATA_DIR
 from video_retriever import VideoRetriever, RetrievedClip
 
-# reuse the Assignment 9 chatbot core (prompt construction, validation, system prompt)
+# reuse the chatbot core (prompt construction, validation, system prompt)
 CHATBOT_DIR = Path(__file__).resolve().parent.parent / "Chatbot"
 if str(CHATBOT_DIR) not in sys.path:
     sys.path.insert(0, str(CHATBOT_DIR))
@@ -43,7 +43,7 @@ def parse_steps(text: str) -> list[str]:
 
 
 class ChatBot:
-    # Assignment 9 TinyLlama model wrapped for single-turn RAG generation
+    # TinyLlama chat model wrapped for single-turn RAG generation
     def __init__(
         self,
         model_name: str = DEFAULT_LLM,
@@ -56,7 +56,7 @@ class ChatBot:
         self.pipe = pipeline("text-generation", model=model_name, dtype=dtype, device=device)
         self.tokenizer = self.pipe.tokenizer
         self.max_new_tokens = max_new_tokens
-        # leave room for the generated tokens (same budgeting as Assignment 9)
+        # leave room for the generated tokens (same budgeting as the chatbot core)
         self.max_tokens = max_context_tokens - max_new_tokens
 
     def generate(
@@ -68,7 +68,7 @@ class ChatBot:
         history = list(conversation_history)
         prompt = prompt_construction(system_prompt, context_block, history)
 
-        # drop the oldest turns until the prompt fits the budget (Assignment 9 strategy)
+        # drop the oldest turns until the prompt fits the budget (same strategy as the chatbot core)
         token_count = len(self.tokenizer.encode(prompt))
         while token_count > self.max_tokens and len(history) > 1:
             history.pop(0)

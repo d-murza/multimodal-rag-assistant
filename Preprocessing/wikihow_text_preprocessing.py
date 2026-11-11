@@ -8,7 +8,7 @@ import torch
 import psutil
 
 
-# TASK 1 - WikiHow Text Preprocessing
+# WikiHow text preprocessing
 start_time = time.time() # the whole thing took ca 15 min
 
 CHUNK_SIZE = 8000

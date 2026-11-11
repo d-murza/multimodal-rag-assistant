@@ -1,8 +1,8 @@
 from transformers import pipeline
 import torch
 
-# TASK 1 - Model Setup and Prompt Structure 
-# print("TASK 1")
+# Model setup and prompt structure 
+# print("Model setup")
 # device = "mps" if torch.backends.mps.is_available() else "cpu"
 # print("Device:", device)
 
@@ -62,7 +62,7 @@ def prompt_construction(system_prompt, context_block, conversation_history):
 #print(outputs[0]["generated_text"])
 
 
-# TASK 2 - Chat Loop and Conversation Management
+# Chat loop and conversation management
 
 # max tokens available for new generated text is max - 256
 max_new_tokens = 256 # needs to have this much free to do another step of generating
@@ -87,7 +87,7 @@ def chat_loop():
             })
 
         # this is where we would insert the context block
-        # essentially calling (the function that retrieves from earlier assignment)
+        # essentially calling (the article retrieval function)
         # context_block = retrieval_test(user_message, combined_index, connect)
 
         # builds the full prompt (including the system prompt and context),
@@ -113,7 +113,7 @@ def chat_loop():
         generated = outputs[0]["generated_text"]
         model_response = generated[len(prompt):].strip()
 
-        model_response = output_validation(model_response) # implement the validation from task 3
+        model_response = output_validation(model_response) # output validation (see below)
 
         # if an error occured - break loop and go to user input again
         if model_response == "Error":
@@ -127,7 +127,7 @@ def chat_loop():
             })
 
 
-# TASK 3 - Output Validation and RAG Preparation
+# Output validation and RAG preparation
 
 # function that takes the model response and checks the three conditions
 def output_validation(model_response):
@@ -164,9 +164,9 @@ def output_validation(model_response):
 
 
 # standalone entry point: loads the model and runs the interactive chat loop.
-# guarded so importing this module (Assignment 10) does not trigger any of it.
+# guarded so importing this module (from the RAG pipeline) does not trigger any of it.
 if __name__ == "__main__":
-    print("TASK 1")
+    print("Model setup")
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print("Device:", device)
 
@@ -177,11 +177,11 @@ if __name__ == "__main__":
 
     print("")
 
-    print("TASK 2")
+    print("Chat loop")
     # count tokens
     tokenizer = pipe.tokenizer
 
-    print("\nTASK 3")
+    print("\nOutput validation")
 
     # starting chatloop
     chat_loop()

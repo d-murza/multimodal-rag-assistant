@@ -1,90 +1,103 @@
-# MARKDOWN FILE FOR PROJECT
-Structure of this md file is as follows:
-- Structure and pipeline of project
-- Project assignment 01
-- Project assignment 02
-- Project assignment 03
-- Project assignment 04
+# Multimodal How-To RAG Assistant
 
+A fully local retrieval-augmented chatbot for "how do I…?" questions. For each question it retrieves relevant **WikiHow** articles and uses them as grounding for a small LLM, which writes step-by-step instructions. Then it finds an instructional **HowTo100M** video clip, with timestamps, for every generated step.
 
-## Structure and pipeline of project
-The folder main folder is called Project. It has 3 sub folders, each containing on weekly assignment apart for Retrieval that contains both assignment 10 and 11.
-The datasets, model files and the virtual environments are not pushed to git. The structure of the project can be found down below.
+![Demo of the Gradio app](assets/demo.png)
 
+🎬 A full demo video is attached to this repository's **Releases** page.
 
-### Pipeline
-1. Create a virtual environment and install the requirements.txt.
+---
 
-2. For the code to work in Project assignment 01 (Preprocessing) the folders with the downloaded data are placed in the subfolder "data" just as they are when they are downloaded using the links from the assignment pdf. The scripts are wikihow_text_preprocessing.py and howTo100M_preprocessing.py, Run wikihow_text_preprocessing.py first.
+## Architecture
 
-3. For assignment 2, the script can just be run and tested with different scenarios.
-
-4. For assignment 3, step into Retrieval folder to run the scripts from here.
-
-5. For assignment 4, step into Retrieval folder to run app.py from here.
-
-
-### Structure of the folder (after all scripts have been run)
 ```
-Project/
-├── Preprocessing/
-│   ├── wikihow_text_preprocessing.py 
-│   ├── howTo100M_preprocessing.py      
-│   ├── data/                           # this one has to be created manually
-│       └── howto100m_bundle/           # download and insert
-│           └── videos/
-│           └── available_videos.csv
-│           └── task_ids.csv
-│       └── wikihow-cleaned/            # download and insert   
-│           └── wikihow-cleaned.csv          
-│   └── processed-data/                 # this is created when running wikihow_text_preprocessing.py  
-│       └── combined_index.faiss        # this is created when running wikihow_text_preprocessing.py
-│       └── howto100m_clips.sqlite3     # this is created when running howTo100M_preprocessing.py
-│       └── title_index.faiss           # this is created when running wikihow_text_preprocessing.py
-│       └── wikihow.db                  # this is created when running wikihow_text_preprocessing.py   
-├── Chatbot/                          
-│   └── model_setup.py                  
-├── Retrieval/                      
-│   ├── article_retriever.py        
-│   ├── video_retriever.py             
-│   ├── rag_pipeline.py                
-│   └── app.py                          # run this to start the app                                          
-├── Plan_of_interface.png              
-├── requirements.txt
-└── README.md
+            User question
+                 │
+                 ▼
+  ┌──────────────────────────────┐      WikiHow  ──►  SQLite (title, summary, text)
+  │ ArticleRetriever             │                    + 2 FAISS indices (MiniLM)
+  │ MiniLM query embedding       │◄────────────────── title-only  /  title+summary
+  │ weighted title + summary     │
+  │ search, SQL keyword fallback │
+  └──────────────┬───────────────┘
+                 │ top-k titles + summaries
+                 ▼
+  ┌──────────────────────────────┐
+  │ Prompt construction          │  <|system|> … <|context|> … <|user|> … <|assistant|>
+  │ TinyLlama-1.1B-Chat          │  token-budget tracking, history truncation,
+  │ + output validation          │  stopping criteria, role-token leak checks
+  └──────────────┬───────────────┘
+                 │ numbered steps
+                 ▼
+  ┌──────────────────────────────┐      HowTo100M ──►  8 s sliding-window clips (4 s stride)
+  │ VideoRetriever               │                    4 frames/clip → CLIP ViT-B/32 → mean
+  │ CLIP text embedding per step │◄────────────────── FAISS IndexIDMap2 + SQLite clip metadata
+  └──────────────┬───────────────┘
+                 │ (video_id, start–end, score) per step
+                 ▼
+        Gradio UI: chat · article list · video player + playlist · system inspection
 ```
 
+### Components
 
-## Project assignment 01
-This is a screen shot of what we tried to upload in previous assignment.
-![User interface screenshot](Plan_of_interface.png)
+| Module | Responsibility |
+|---|---|
+| `Preprocessing/wikihow_text_preprocessing.py` | Streams the WikiHow CSV in chunks into SQLite and builds two L2-normalized FAISS inner-product indices (`all-MiniLM-L6-v2`): one over titles, one over titles + summaries |
+| `Preprocessing/howTo100M_preprocessing.py` | Splits each video into sliding-window clips with OpenCV, embeds sampled frames with CLIP ViT-B/32, and stores the clip vectors in FAISS with their metadata (video, task, time segment) in SQLite. Configurable from the CLI. |
+| `Chatbot/model_setup.py` | Chatbot core: prompt construction with explicit role delimiters, conversation history, token counting and truncation, stopping criteria, output validation |
+| `Retrieval/article_retriever.py` | `ArticleRetriever`: weighted fusion of both indices, metadata lookup, keyword fallback, and formatting of the context snippet |
+| `Retrieval/video_retriever.py` | `VideoRetriever`: CLIP text → clip search, returning video IDs, time segments and similarity scores |
+| `Retrieval/rag_pipeline.py` | `RAGPipeline`: article retrieval → prompt → generation → step parsing → one clip per step |
+| `Retrieval/app.py` | Gradio interface with chat state, an article tab, a video player that seeks to the selected segment, and a collapsible **System inspection** panel (token budget, similarity scores, injected context) |
 
-We have decided to create a arg parser so that we are flexible with the input files
-to run on Windows Powershell: 
-python howTo100M_preprocessing.py `
-  --task-ids-csv pathTo/task_ids.csv ` 
-  --available-videos-csv pathTo/available_videos.csv `
-  --videos-root pathTo/videos `
-  --limit-videos 5 `
-  --query "how to boil water"
+All models are used frozen, for inference only. The whole system runs locally.
 
+---
 
-## Project assignment 02
-How your chatbot architecture can later be adapted to:
-– inject retrieved how-to article text into the context block,
-  There is a comment about this in the code. So the variable context_block is created but so far just an empty string. In the prompt construction function, it checks whether you have a context or not. The context is then retrieved by calling the function as implemented in project assignment 01. However, since the articles are possibly longer than the max token (2048) we have, we might have to update it so that the context is a summarised version of the article.
-  
-– include video metadata or captions,
-The video metadata has to be included in the chat bot step as well as it is based on the output that the chat bot is generating.
+## Setup
 
-– control how much retrieved content is passed to the model.
-This was mentioned in further up. We have to see if we can summarise the retrieved content. 
-  
+```bash
+python -m venv venv
+venv\Scripts\activate                    # Windows (source venv/bin/activate on Linux/macOS)
+pip install -r requirements.txt
+```
 
-## Project assignment 03
-In assignment 03, the retrieval and pipe line of the project was created. 
-As figure 1 shows in the assignment pdf, the queries by the user are turned into embeddings by the same model "sentence-transformers/all-MiniLM-L6-v2" as in project assignment 1. The step by steps are then generated before the videoretriever uses "openai/clip-vit-base-patch32" model to create embeddings for each step, which are then used to  find a suitable video from the howto100_clips.sqlite3 database.
+### Data
+The datasets are not included. Create `Preprocessing/data/` and place inside it:
+- `wikihow-cleaned/wikihow-cleaned.csv`: the cleaned WikiHow dataset
+- `howto100m_bundle/`: the HowTo100M subset (342 videos) with `videos/`, `available_videos.csv` and `task_ids.csv`
 
-## Project assignment 04
-The planned interface wasn't really followed as we found it neater to do different menus that can be opened to have more focus on the chat part which is the most important for the user.
-To start the app, run the app.py. Worth noting is that the "System inspection" can be found as a toggle menu at the bottom of the webpage. If this is opened, token budget, similarity scores and injected context can be found. The user can decide if it wants to see the articles or the videos for the chatbot answer.
+### Build the indices (one-time)
+```bash
+# 1) WikiHow articles: run from inside Preprocessing/
+cd Preprocessing
+python wikihow_text_preprocessing.py
+cd ..
+
+# 2) HowTo100M clips: run from the project folder
+python Preprocessing/howTo100M_preprocessing.py \
+  --db-path Preprocessing/processed-data/howto100m_clips.sqlite3 \
+  --index-path Preprocessing/processed-data/howto100m_clips.faiss \
+  --query "how to boil water"          # optional: --limit-videos 5 for a quick test
+```
+On Windows PowerShell, write the command on one line or use `` ` `` instead of `\` for line continuation.
+This creates `Preprocessing/processed-data/` with `wikihow.db`, `title_index.faiss`, `combined_index.faiss` and the clip index and database.
+
+### Run the app
+```bash
+cd Retrieval
+python app.py
+```
+Open the local Gradio URL, ask something like *"How to change a tire?"*, and open **System inspection** at the bottom to see what was retrieved and injected into the prompt.
+
+---
+
+## Design notes
+- **Two article indices.** Titles match short intent-style queries well, and title + summary adds semantic detail. The scores are fused with a configurable `title_weight`.
+- **Step-level video retrieval.** The steps the LLM generates are short, visual sentences. They make better CLIP queries than the user's raw question, so each step gets its own clip.
+- **Context budget.** TinyLlama has a 2,048-token window. Only titles and summaries are injected, never full articles, and 256 tokens are reserved for generation. Older turns are truncated when the budget runs out.
+- **The interface changed during development.** The original sketch ([`Plan_of_interface.png`](Plan_of_interface.png)) had all panels visible at once. The final UI moves inspection and media into tabs and a collapsible panel to keep the focus on the chat.
+
+## Limitations
+- TinyLlama sometimes repeats or invents steps. A larger instruction-tuned model would improve the answers.
+- CLIP matches what a clip *looks like*, not what is said in it, so some clips are only loosely related to their step. Adding transcripts or captions would help.
